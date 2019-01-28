@@ -1,29 +1,45 @@
-version: '2'
+version: '3'
 services:
-  apache:
-    image: rafaelcgstz/magento2
-    # build: .
+  web_server:
+    #image: apache
+    build:
+      context: ./web_server/
+    container_name: apache2
     ports:
-      - "80:80" # web
-      - "9001:9000" # xdebug
-      # - "35729:35729" # live reload
+      - 8080:8080 # web
+      - 9001:9000 # xdebug
+      - 35729:35729 # live reload
     volumes:
-      - ./src:/var/www/html
+      - ./src/magento:/var/www/html
       - ~/.composer:/var/www/.composer
       - ~/.npm:/var/www/.npm
-      # - ~/.nvm:/var/www/.nvm
     environment:
-      XDEBUG_CONFIG: "remote_host=localhost"
-      PHP_IDE_CONFIG: "serverName=Docker"
+      XDEBUG_CONFIG: remote_host=docker.for.mac.localhost
     depends_on:
-      - db
+      - mariadb
     links:
-      - db
+      - mariadb:db
     networks:
-      - <project_name>-network
+      - anova-network
 
-  db:
-    image: mariadb
+  cache_server:
+    build:
+      context: ./cache_server/
+    container_name: varnish
+    ports:
+      - 80:80
+      - 6082:6082
+    volumes:
+      - ./cache_server/default.vcl:/etc/varnish/default.vcl
+      - ./cache_server/varnish:/etc/default/varnish
+      - ./cache_server/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
+    depends_on:
+      - web_server
+    links:
+      - web_server
+
+  mariadb:
+    image: mariadb:10.4
     ports:
      - 3300:3306
     environment:
@@ -32,48 +48,44 @@ services:
       - MYSQL_USER=magento
       - MYSQL_PASSWORD=magento
     volumes:
-      - dbdata:/var/lib/mysql
+      - ./dbdata:/var/lib/mysql
     networks:
-      - <project_name>-network
+      - anova-network
 
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin
+    image: phpmyadmin/phpmyadmin:4.7
     environment:
-     - PMA_HOST=db
+     - PMA_HOST=mariadb
      - PMA_USER=root
      - PMA_PASSWORD=root
      - MYSQL_ROOT_PASSWORD=root
     ports:
-     - 8080:80
+     - 8088:80
     networks:
-      - <project_name>-network
+      - anova-network
 
   redis:
     image: redis
     ports:
      - 6379
     networks:
-      - <project_name>-network
+      - anova-network
 
   redis-session:
     image: redis
     ports:
      - 6379
     networks:
-      - <project_name>-network
+      - anova-network
 
-  mailhog:
-    image: mailhog/mailhog
-    ports:
-      - 1025:1025
-      - 8025:8025
-    networks:
-      - <project_name>-network
+  #mailhog:
+  #  image: mailhog/mailhog
+  #  ports:
+  #    - 1025:1025
+  #    - 8025:8025
+  #  networks:
+  #    - anova-network
 
 networks:
-  <project_name>-network:
+  anova-network:
     driver: bridge
-
-volumes:
-  dbdata:
-    driver: local

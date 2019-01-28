@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-docker-compose exec --user www-data apache composer $@
+docker-compose exec --user www-data web_server composer $@

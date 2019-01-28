@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+echo "Import DB to magento table"
+mysql -h db -P 3306 -u magento -pmagento magento < /var/www/html/anova.sql

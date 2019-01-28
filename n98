@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-docker-compose exec --user www-data apache n98-magerun2.phar $@
+docker-compose exec --user www-data web_server n98-magerun2.phar $@

@@ -8,8 +8,8 @@ echo "
       v.$version
       Access your new links:
 
-      🌎 Web server: http://localhost/
-      ⚙️ PHPMyAdmin: http://localhost:8080
+      🌎 Web server: http://anova.lc/
+      ⚙️ PHPMyAdmin: http://localhost:8088
       ✉️ Local emails: http://localhost:8025
 
 ===================== 🚀 Done 🚀 ==================="

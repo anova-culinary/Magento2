@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+# clone github project
+echo "[SETUP][STEP - GIT CLONE] Start cloning Anova monorepo to ./src folder"
+git clone https://github.com/anova-culinary/monorepo.git src
+echo "[SETUP] Cloning finished"
+
+# move default environment files (to avoid installing)
+echo "[SETUP][STEP - MOVE ENV CONFIG] Move env.php to app/etc/ folder"
+cp ./web_server/setup/env.php.sample ./src/magento/app/etc/env.php
+
+echo "[SETUP][STEP - MOVE MODULE CONFIG] Move config.php to app/etc/ folder"
+cp ./web_server/setup/config.php.sample ./src/magento/app/etc/config.php
+
+echo "[SETUP][STEP - MOVE .htaccess] Move .htaccess with no restrictions to project root dir"
+cp ./web_server/setup/.htaccess.dev ./src/magento/.htaccess
+
+echo "[SETUP][STEP - MOVE COMPOSER AUTH] Move Composer auth.json to Composer home dir"
+mkdir ./src/magento/var/composer_home
+cp ~/.composer/auth.json ./src/magento/var/composer_home/auth.json
+
+echo "[SETUP][STEP - MOVE LOCAL DATABASE DUMP] Move local DB before import"
+cp ./web_server/setup/anova.sql ./src/magento/anova.sql
+
+echo "[SETUP][STEP - UP&BUILD IMAGES] Build docker containers"
+docker-compose up -d --build --quiet-pull 
+
+echo "[SETUP][STEP - IMPORT LOCAL DATABASE] Import local DB and Remove DB file"
+echo "[SETUP] Wait 30 sec before MariaDB engine start"
+secs=$((30))
+while [ $secs -gt 0 ]; do
+   echo -ne "$secs\033[0K\r"
+   sleep 1
+   : $((secs--))
+done
+docker-compose exec web_server importdb
+
+echo "[SETUP][STEP - RUN COMPOSER INSTALL] Run composer install cmd"
+docker-compose exec web_server /bin/bash -c "cp  var/composer_home/auth.json ~/.composer/auth.json"
+docker-compose exec web_server composer install
+docker-compose exec web_server composer update vertex/module-tax
+
+echo "[SETUP][STEP - CLEAR REDIS DB] Clear Redis DB"
+docker-compose exec redis /usr/local/bin/redis-cli dbsize
+docker-compose exec redis /usr/local/bin/redis-cli flushdb
+docker-compose exec redis /usr/local/bin/redis-cli dbsize
+
+echo "[SETUP][STEP - RUN CACHE FLUSH] Run cache:flush"
+docker-compose exec web_server /usr/local/bin/php bin/magento cache:flush
+
+echo "[SETUP][STEP - RUN SETUP UPGRADE] Run setup:upgrade"
+docker-compose exec web_server /usr/local/bin/php bin/magento setup:upgrade
+
+echo "[SETUP][STEP - COPY MEDIA FILES] Copy media files"
+rm -rf ./src/magento/pub/media/
+cp -r ./web_server/setup/media/ ./src/magento/pub/media
+
+echo "
+===================== 🚀 Done 🚀 ===================
+
+      Created by Rafael Corrêa Gomes, improved by Bohdan Slobodian
+      v.$version
+      Access your new links:
+
+      🌎 Web server: http://anova.lc/ || http://jp.anova.lc
+      ⚙️ PHPMyAdmin: http://localhost:8088
+      ✉️ Local emails: http://localhost:8025
+
+===================== 🚀 Done 🚀 ==================="
